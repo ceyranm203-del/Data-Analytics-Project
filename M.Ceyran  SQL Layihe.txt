@@ -1,0 +1,399 @@
+-- 1. Abonentlərin son 3 ayda istifadə etdiyi xidmətlərin adlarını və istifadə sayını göstər:
+Ekrana abonentin adı, soyadı, xidmətin adı və istifadə sayı çıxsın
+
+
+select s.name,
+       s.surname,
+       sv.service_name,
+       count(*) 
+from calls c
+join subscribers s on c.caller_id = s.subscribers_id
+join services sv on c.service_id = sv.service_id
+where c.call_date >= add_months(sysdate, -3)
+group  by s.name, s.surname, sv.service_name;
+
+
+
+
+--2.Hər abonent üçün son ödəniş tarixini və məbləğini göstər: 
+--    Ekrana Ad, soyad, son ödəniş tarixi, məbləği və ödənişin üsulu haqqında informasiyalar çıxsın.
+
+
+select 
+    s.name,
+    s.surname,
+    p.payment_date,
+    p.payment_amount,
+    p.payment_method
+from  subscribers s
+join (select subscribers_id, max(payment_date) as son_odenis
+from payments group by subscribers_id) m on s.subscribers_id = m.subscribers_id
+join  payments p on p.subscribers_id = m.subscribers_id  and p.payment_date = m.son_odenis;
+
+
+
+
+-- 3.Aktiv xidmətlər üzrə abonentlərin sayını və ümumi ödəniş məbləğini göstər:
+--    Ekrana xidmətin adı,abonentlərin sayını və ümumi ödəniş məbləği haqqında informasiyalar çıxsın. 
+
+
+select
+    sv.service_name as xidmet_adi,
+    count(distinct c.caller_id) as abonent_sayi,
+    sum(p.amount) as umumi_odenis
+from services sv
+join calls c on sv.service_id = c.service_id 
+join payments p ON c.caller_id = p.subscribers_id
+where sv.status = 'ACTIVE'
+group by sv.service_name
+order by umumi_odenis desc;
+
+
+
+-- 4.Hər abonent üçün edilən zənglərin sayını və ümumi zəng müddətini göstər:
+--    Ekrana ad, soyad, abonent üçün edilən zənglərin sayını, ümumi zəng müddətini, zəngin tipi haqqında informasiyalar çıxsın.
+
+
+
+
+select
+    s.name as ad,
+    s.surname as soyad,
+    ct.name as zengin_tipi,
+    count(*) as zeng_sayi,
+    sum(c.call_duration) as umumi_muddet
+from calls c
+join subscribers s on c.caller_id = s.subscribers_id
+join call_type ct on c.call_type_id = ct.call_type_id
+group by s.name, s.surname, ct.name
+order by s.name, s.surname;
+
+
+
+--5.Hər abonent üçün tarifə görə aylıq ödədikləri məbləği və zənglərin sayını göstər:
+--    Ekrana ad, soyad,tarifə görə aylıq ödədikləri məbləğ və zənglərin sayı haqqında informasiyalar çıxsın. 
+
+
+select s.name,
+       s.surname,
+       t.tariff_name,
+       t.monthly_subscription,
+       count(c.call_id) 
+from subscribers s
+join calls c on c.caller_id = s.subscribers_id
+join services sv on c.service_id = sv.service_id
+join tariff_informations t on sv.tariff_id = t.tariff_id
+group  by s.name, s.surname, t.tariff_name, t.monthly_subscription;
+
+
+
+--6.Zənglərin növünə görə abonentlərin sayını və ümumi zəng müddətini göstər:
+
+select
+    ct.name as zeng_novu,
+    count(distinct c.caller_id) as abonent_sayi,
+    sum(c.call_duration) as umumi_muddet
+from calls c
+join call_type ct on c.call_type_id = ct.call_type_id
+group by ct.name
+order by ct.name;
+
+
+--7. Aktiv olmayan, lakin son 6 ayda ödəniş etmiş abonentləri tap.
+Ekrana ad, soyad, status və ödəniş tarixi çıxsın.
+
+select
+    s.name as ad,
+    s.surname as soyad,
+    s.status,
+    p.payment_date as odenis_tarixi
+from subscribers s
+join payments p on s.subscribers_id = p.subscribers_id
+where s.status = 'PASSIVE'
+and p.payment_date >= add_months(sysdate, -6)
+order by p.payment_date desc;
+
+
+
+--8.Son 6 ayda edilən ödənişlərin məbləğini və xidmətlərin sayını abonentlər üzrə göstər.
+--    Ekrana abonentin adı, abonentin soyadı, xidmətlərin sayı və 6 ayda edilən ödənişlərin məbləği haqqında informasiyalar çıxsın.
+     
+
+select
+    s.name as ad,
+    s.surname as soyad,
+    count(distinct c.service_id) as xidmet_sayi,
+    sum(p.amount) as odenis_meblegi
+from subscribers s
+left join calls c on s.subscribers_id = c.caller_id
+left join payments p on s.subscribers_id = p.subscribers_id  and p.payment_date >= add_months(sysdate, -6)
+group by s.name, s.surname
+having sum(p.amount) is not null
+order by s.name, s.surname;
+
+
+
+--9.Abonentlərdən ən çox şikayət edən 10 nəfərin adını və şikayət sayını göstər:
+Ekrana ad, soyad və ümumi şikayət sayı çıxsın.
+
+
+
+
+--10. Hər abonent üçün son 12 ayda göndərilən SMS-lərin sayını və SMS məzmununu göstər:
+
+select 
+ s.name,
+ s.surname, 
+si.sms_content,
+to_char(si.sms_date, 'YYYY-MM-DD') 
+from sms_informations si 
+join subscribers s 
+on s.subscribers_id = si.sender_id
+where  si.sms_date >= add_months(sysdate, -12)
+order by s.name, s.surname, si.sms_date
+
+
+
+--11.Hər abonent üçün edilən zənglərin ümumi müddətini və ödəniş məlumatlarını göstər:    
+--   Ekrana abonentin adı, abonentin soyadı, zənglərin ümumi müddətini ödəniş məlumatları haqqında informasiyalar çıxsın. 
+
+
+select 
+   s.name,
+   s.surname,nvl(sum(c.call_duration), 0) ,
+   nvl(sum(p.amount), 0) ,
+   max(p.payment_date) 
+from  subscribers s
+left join calls c on c.caller_id = s.subscribers_id
+left join payments p on p.subscribers_id = s.subscribers_id
+group by  s.name, s.surname order by s.name, s.surname
+
+
+
+--12. Hər tarif üzrə abonentlərin aylıq ödədikləri məbləğin orta dəyərini və zənglərin sayını göstər:
+--   Ekrana tarif adı, abonentlərin aylıq ödədikləri məbləğin orta dəyəri və zənglərin sayı haqqında informasiyalar çıxsın. 
+
+select  
+   ti.tariff_name, 
+   avg(ti.monthly_subscription), 
+   count(c.call_id) 
+from calls c
+join services sv on c.service_id = sv.service_id
+join tariff_informations ti on sv.tariff_id = ti.tariff_id
+group by  ti.tariff_name
+
+
+
+
+--13. Hər abonent üçün son 12 ayda göndərilən SMS-lərin məzmununu və göndərilən SMS növlərini göstər:
+--   Ekrana abonentin adı, soyadı, son 12 ayda göndərilən SMS-lərin məzmununu və göndərilən SMS növləri haqqında informasiyalar çıxsın.  
+      
+
+
+select 
+   s.name,
+   s.surname, 
+   st.name,
+   si.sms_content, 
+   to_char(si.sms_date, 'YYYY-MM-DD') 
+from sms_informations si
+join subscribers s on s.subscribers_id = si.sender_id
+join sms_types st on st.sms_type_id = si.sms_type_id
+where si.sms_date >= add_months(sysdate, -12)
+order by s.name, s.surname, si.sms_date
+
+
+
+-- 14. Hər abonent üçün son 6 ayda edilən ödənişlərin məbləğini və xidmətlərin sayını göstər:
+--   Ekrana abonentin adı, soyadı, son 6 ayda edilən ödənişlərin məbləğini və xidmətlərin sayı haqqında informasiyalar çıxsın.
+       
+
+select
+     s.name,
+    s.surname,
+    count(distinct ps.service_id),
+    sum(p.amount) 
+from payments p
+join subscribers s on s.subscribers_id = p.subscribers_id
+join provided_services ps on ps.subscribers_id = s.subscribers_id
+where p.payment_date >= add_months(sysdate, -6)
+group by s.name, s.surname
+order by s.name;
+
+
+-- 15. Hər abonent üçün ödənişlər və şikayətlərin məbləğini göstər:
+--   Ekrana abonentin adı, soyadı, hər abonent üçün ödənişlər və şikayətlərin sayı haqqında informasiyalar çıxsın. 
+      
+
+
+select
+    s.name,
+    s.surname,
+    sum(p.amount) ,
+    count(c.complaint_id) 
+from subscribers s
+left join payments p on s.subscribers_id = p.subscribers_id
+left join complaints c on s.subscribers_id = c.subscribers_id
+group by s.name, s.surname
+order by s.name;
+
+
+
+
+-- 16. Abonentlərin yaş qrupuna görə və cinsiyyətə görə bölgüsünü göstər:
+--    Yaş qrupları aşağıdakı şəkildədi
+--    18 və aşağı
+--    19-30
+--    31-50
+--    51 və yuxarı
+--    Ekrana yaş aralığı,cins və say haqqında informasiyalar çıxsın.   
+
+
+select
+    case
+        when months_between(sysdate, s.birth_date)/12 <= 18 then '18 ve asagi'
+        when months_between(sysdate, s.birth_date)/12 between 19 and 30 then '19-30'
+        when months_between(sysdate, s.birth_date)/12 between 31 and 50 then '31-50'
+        else '51 ve yuxari'
+    end as age_group,
+    s.gender,
+    count(*) as subscriber_count
+from subscribers s
+group by
+   ( case
+        when months_between(sysdate, s.birth_date)/12 <= 18 then '18 ve asagi'
+        when months_between(sysdate, s.birth_date)/12 between 19 and 30 then '19-30'
+        when months_between(sysdate, s.birth_date)/12 between 31 and 50 then '31-50'
+        else '51 ve yuxari'
+    end),
+    s.gender;
+
+
+
+
+-- 17. Hər abonentin ümumi ödədiyi məbləği və onların ödədikləri məbləğin tariflərin ortalama ödəmə məbləğindən yüksək olub 
+--     olmadığını göstərən sorğu:
+
+
+select 
+    s.name,
+    s.surname,
+    sum(p.amount) as umumi_odenis,
+    avg(t.monthly_subscription) as,
+    case 
+        when sum(p.amount) > avg(t.monthly_subscription) then 'YÜKSƏKDİR'
+        else 'DEYİL'
+    end 
+from subscribers s
+    join payments p on s.subscribers_id = p.subscribers_id
+    join calls c on s.subscribers_id = c.caller_id
+    join services sv on c.service_id = sv.service_id
+    join tariff_informations t on sv.tariff_id = t.tariff_id
+group by s.name, s.surname;
+
+
+
+-- 18. Hər abonentin zənglərin ümumi müddətini və onların zəng müddətinin abonentin yaş qrupunun ortalama zəng müddətindən 
+--     yüksək olub olmadığını göstərən sorğu:             
+
+select 
+  s.name,
+  s.surname,
+  case 
+    when trunc(months_between(sysdate, s.birth_date)/12) <= 18 then '18 və aşağı'
+    when trunc(months_between(sysdate, s.birth_date)/12) between 19 and 30 then '19-30'
+    when trunc(months_between(sysdate, s.birth_date)/12) between 31 and 50 then '31-50'
+    else '51 və yuxarı'
+  end as yas_qrupu,
+  sum(c.call_duration) 
+from  subscribers s
+  join calls c on s.subscribers_id = c.caller_id
+group by  s.name, s.surname, 
+  case 
+    when trunc(months_between(sysdate, s.birth_date)/12) <= 18 then '18 və aşağı'
+    when trunc(months_between(sysdate, s.birth_date)/12) between 19 and 30 then '19-30'
+    when trunc(months_between(sysdate, s.birth_date)/12) between 31 and 50 then '31-50'
+    else '51 və yuxarı'
+  end;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
